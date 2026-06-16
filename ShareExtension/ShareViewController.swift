@@ -193,7 +193,7 @@ class ShareViewController: UIViewController {
             let tour = try await KomootDownloader.downloadTour(from: cleanURL)
             
             await updateStatus("Building GPX...", progress: 0.5)
-            let gpx = GPXBuilder.buildGPX(name: tour.name, coordinates: tour.coordinates)
+            let gpxContent = GPXBuilder.buildGPX(name: tour.name, coordinates: tour.coordinates)
             
             await updateStatus("Saving...", progress: 0.8)
             
@@ -211,7 +211,7 @@ class ShareViewController: UIViewController {
             
             if let sharedURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.com.komoot2gpx.app") {
                 let fileURL = sharedURL.appendingPathComponent(filename)
-                try? gpx.write(to: fileURL, atomically: true, encoding: .utf8)
+                try? gpxContent.write(to: fileURL, atomically: true, encoding: .utf8)
                 if fileManager.fileExists(atPath: fileURL.path) {
                     saved = true
                 }
@@ -219,7 +219,7 @@ class ShareViewController: UIViewController {
             
             if !saved, let docsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
                 let fileURL = docsURL.appendingPathComponent(filename)
-                try? gpx.write(to: fileURL, atomically: true, encoding: .utf8)
+                try? gpxContent.write(to: fileURL, atomically: true, encoding: .utf8)
                 if fileManager.fileExists(atPath: fileURL.path) {
                     saved = true
                 }

@@ -12,10 +12,7 @@ struct TourData {
 }
 
 enum GPXBuilder {
-    static func buildGPX(name: String, coordinates: [Coordinate]) -> URL {
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileURL = tempDir.appendingPathComponent("route.gpx")
-        
+    static func buildGPX(name: String, coordinates: [Coordinate]) -> String {
         var gpx = """
         <?xml version="1.0" encoding="UTF-8"?>
         <gpx version="1.1" creator="Komoot2GPX" xmlns="http://www.topografix.com/GPX/1/1">
@@ -44,8 +41,7 @@ enum GPXBuilder {
         </gpx>
         """
         
-        try? gpx.write(to: fileURL, atomically: true, encoding: .utf8)
-        return fileURL
+        return gpx
     }
     
     private static func escapeXML(_ string: String) -> String {

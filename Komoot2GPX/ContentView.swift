@@ -234,7 +234,7 @@ struct ContentView: View {
         Task {
             do {
                 let tour = try await KomootDownloader.downloadTour(from: cleanURL)
-                let gpx = GPXBuilder.buildGPX(name: tour.name, coordinates: tour.coordinates)
+                let gpxContent = GPXBuilder.buildGPX(name: tour.name, coordinates: tour.coordinates)
                 
                 let sanitizedName = tour.name
                     .components(separatedBy: CharacterSet(charactersIn: "<>:\"/\\|?*"))
@@ -245,7 +245,7 @@ struct ContentView: View {
                 let shareToken = extractShareToken(from: urlString)
                 
                 let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
-                try gpx.write(to: fileURL, atomically: true, encoding: .utf8)
+                try gpxContent.write(to: fileURL, atomically: true, encoding: .utf8)
                 
                 await MainActor.run {
                     self.tourName = tour.name
