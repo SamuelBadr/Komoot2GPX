@@ -1,4 +1,5 @@
 import SwiftUI
+import KomootCore
 
 struct ShareableFile: Identifiable {
     let id = UUID()
@@ -35,6 +36,26 @@ struct ContentView: View {
         }
     }
     
+    private var downloadTab: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    HeroSection()
+                    InputSection(urlInput: $urlInput, isFocused: $isFocused, isLoading: isLoading, onDownload: download)
+                    ShareHintSection()
+                    StatusSection(errorMessage: errorMessage, tourName: tourName)
+                }
+                .padding(.horizontal, 20)
+            }
+            .navigationTitle("Komoot2GPX")
+            .navigationBarTitleDisplayMode(.inline)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isFocused = false
+            }
+        }
+    }
+    
     private func scanForSharedFiles() async {
         let fileManager = FileManager.default
         
@@ -46,14 +67,6 @@ struct ContentView: View {
                 }
             } catch {}
         }
-        
-        let mainDocsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        do {
-            let contents = try fileManager.contentsOfDirectory(at: mainDocsURL, includingPropertiesForKeys: [.isRegularFileKey])
-            for fileURL in contents.filter({ $0.pathExtension == "gpx" }) {
-                await addFileToHistory(fileURL)
-            }
-        } catch {}
     }
     
     private func addFileToHistory(_ fileURL: URL) async {
@@ -103,103 +116,6 @@ struct ContentView: View {
             }
         }
         return coordinates.isEmpty ? nil : coordinates
-    }
-    
-    private var downloadTab: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 32) {
-                    VStack(spacing: 12) {
-                        Image(systemName: "arrow.down.doc")
-                            .font(.system(size: 64, weight: .ultraLight))
-                            .foregroundStyle(.green)
-                            .accessibilityLabel("Download GPX")
-                        
-                        Text("Komoot2GPX")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        Text("Download GPX files from Komoot tours")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.top, 40)
-                    
-                    VStack(spacing: 16) {
-                        TextField("Paste Komoot link", text: $urlInput)
-                            .focused($isFocused)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .submitLabel(.go)
-                            .onSubmit { download() }
-                            .accessibilityLabel("Komoot URL")
-                        
-                        Button {
-                            download()
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: isLoading ? "arrow.triangle.2.circlepath" : "arrow.down.circle")
-                                    .symbolEffect(.variableColor.iterative, options: .repeating, value: isLoading)
-                                
-                                Text(isLoading ? "Downloading..." : "Download GPX")
-                                    .fontWeight(.semibold)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                        .disabled(isLoading || urlInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .accessibilityLabel("Download GPX file")
-                        .accessibilityHint(isLoading ? "Download in progress" : "Double tap to download")
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    VStack(spacing: 16) {
-                        Divider()
-                        
-                        Text("Or share from Komoot app")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                        
-                        HStack(spacing: 24) {
-                            ShareHintBadge(icon: "square.and.arrow.up", text: "Share")
-                            ShareHintBadge(icon: "arrow.right", text: "Komoot2GPX")
-                            ShareHintBadge(icon: "checkmark.circle", text: "Done")
-                        }
-                    }
-                    .padding(.horizontal, 40)
-                    
-                    if let errorMessage = errorMessage {
-                        StatusMessage(
-                            icon: "exclamationmark.circle.fill",
-                            text: errorMessage,
-                            color: .red,
-                            bgColor: Color.red.opacity(0.1)
-                        )
-                    }
-                    
-                    if let tourName = tourName {
-                        StatusMessage(
-                            icon: "checkmark.circle.fill",
-                            text: tourName,
-                            color: .green,
-                            bgColor: Color.green.opacity(0.1)
-                        )
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-            .navigationTitle("Komoot2GPX")
-            .navigationBarTitleDisplayMode(.inline)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                isFocused = false
-            }
-        }
     }
     
     private func download() {
@@ -296,51 +212,6 @@ struct ContentView: View {
     private func hapticNotification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(type)
-    }
-}
-
-private struct ShareHintBadge: View {
-    let icon: String
-    let text: String
-    
-    var body: some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 20, weight: .medium))
-                .foregroundStyle(.green)
-            
-            Text(text)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct StatusMessage: View {
-    let icon: String
-    let text: String
-    let color: Color
-    let bgColor: Color
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(color)
-            
-            Text(text)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(color)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(bgColor)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

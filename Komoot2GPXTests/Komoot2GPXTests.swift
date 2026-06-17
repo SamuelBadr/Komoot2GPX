@@ -3,85 +3,93 @@ import XCTest
 
 final class Komoot2GPXTests: XCTestCase {
     
-    var downloader: KomootDownloader!
+    // MARK: - URL Normalization Tests
     
-    override func setUp() async throws {
-        try await super.setUp()
-        downloader = KomootDownloader()
+    func testNormalizeURL_RemovesTrackingParameters() {
+        let url = "https://www.komoot.com/smarttour/40128?ref=itd&query=abc&t_cid=share"
+        let normalized = KomootURLNormalizer.normalize(url)
+        
+        XCTAssertNotNil(normalized)
+        XCTAssertFalse(normalized!.contains("ref="))
+        XCTAssertFalse(normalized!.contains("query="))
+        XCTAssertFalse(normalized!.contains("t_cid="))
+        XCTAssertTrue(normalized!.contains("komoot.com/smarttour/40128"))
     }
     
-    override func tearDown() async throws {
-        downloader = nil
-        try await super.tearDown()
+    func testNormalizeURL_KeepsShareToken() {
+        let url = "https://www.komoot.com/tour/123?share_token=abc123&ref=xyz"
+        let normalized = KomootURLNormalizer.normalize(url)
+        
+        XCTAssertNotNil(normalized)
+        XCTAssertTrue(normalized!.contains("share_token=abc123"))
+        XCTAssertFalse(normalized!.contains("ref="))
     }
     
-    // MARK: - URL Parsing Tests
+    func testNormalizeURL_InvalidURL() {
+        let url = "not a valid url"
+        let normalized = KomootURLNormalizer.normalize(url)
+        XCTAssertNil(normalized)
+    }
+    
+    func testNormalizeURL_NonKomootURL() {
+        let url = "https://example.com/tour/123"
+        let normalized = KomootURLNormalizer.normalize(url)
+        XCTAssertNil(normalized)
+    }
+    
+    // MARK: - Tour ID Extraction Tests
     
     func testExtractTourID_FromNumericString() {
-        let result = Komoot2GPX.extractTourID(from: "123456789")
+        let result = KomootURLNormalizer.extractTourID(from: "123456789")
         XCTAssertEqual(result, "123456789")
     }
     
     func testExtractTourID_FromTourURL() {
-        let result = Komoot2GPX.extractTourID(from: "https://www.komoot.com/tour/123456789")
+        let result = KomootURLNormalizer.extractTourID(from: "https://www.komoot.com/tour/123456789")
         XCTAssertEqual(result, "123456789")
     }
     
     func testExtractTourID_FromSmarttourURL() {
-        let result = Komoot2GPX.extractTourID(from: "https://www.komoot.com/smarttour/e1984570097")
+        let result = KomootURLNormalizer.extractTourID(from: "https://www.komoot.com/smarttour/e1984570097")
         XCTAssertEqual(result, "1984570097")
     }
     
     func testExtractTourID_FromSmarttourURL_WithTrackingParams() {
         let url = "https://www.komoot.com/smarttour/40128?ref=itd&query=abc123&t_cid=route_share"
-        let result = Komoot2GPX.extractTourID(from: url)
+        let result = KomootURLNormalizer.extractTourID(from: url)
         XCTAssertEqual(result, "40128")
     }
     
     func testExtractTourID_FromSmarttourURL_NoPrefix() {
-        let result = Komoot2GPX.extractTourID(from: "https://www.komoot.com/smarttour/987654")
+        let result = KomootURLNormalizer.extractTourID(from: "https://www.komoot.com/smarttour/987654")
         XCTAssertEqual(result, "987654")
     }
     
     func testExtractTourID_InvalidURL() {
-        let result = Komoot2GPX.extractTourID(from: "https://example.com/invalid")
+        let result = KomootURLNormalizer.extractTourID(from: "https://example.com/invalid")
         XCTAssertNil(result)
     }
     
     func testExtractTourID_EmptyString() {
-        let result = Komoot2GPX.extractTourID(from: "")
+        let result = KomootURLNormalizer.extractTourID(from: "")
         XCTAssertNil(result)
     }
     
     func testExtractTourID_WithWhitespace() {
-        let result = Komoot2GPX.extractTourID(from: "  123456789  ")
+        let result = KomootURLNormalizer.extractTourID(from: "  123456789  ")
         XCTAssertEqual(result, "123456789")
     }
     
-    // MARK: - URL Cleaning Tests
+    // MARK: - URL Construction Tests
     
-    func testCleanURL_RemovesTrackingParameters() {
-        let url = "https://www.komoot.com/smarttour/40128?ref=itd&query=abc&t_cid=share"
-        let cleaned = Komoot2GPX.extractCleanURL(from: url)
-        
-        XCTAssertFalse(cleaned.contains("ref="))
-        XCTAssertFalse(cleaned.contains("query="))
-        XCTAssertFalse(cleaned.contains("t_cid="))
-        XCTAssertTrue(cleaned.contains("komoot.com/smarttour/40128"))
+    func testConstructURL_WithoutShareToken() {
+        let url = KomootURLNormalizer.constructURL(tourID: "123", shareToken: nil)
+        XCTAssertEqual(url, "https://www.komoot.com/tour/123")
     }
     
-    func testCleanURL_KeepsShareToken() {
-        let url = "https://www.komoot.com/tour/123?share_token=abc123&ref=xyz"
-        let cleaned = Komoot2GPX.extractCleanURL(from: url)
-        
-        XCTAssertTrue(cleaned.contains("share_token=abc123"))
-        XCTAssertFalse(cleaned.contains("ref="))
-    }
-    
-    func testCleanURL_InvalidURL() {
-        let url = "not a valid url"
-        let cleaned = Komoot2GPX.extractCleanURL(from: url)
-        XCTAssertEqual(cleaned, url)
+    func testConstructURL_WithShareToken() {
+        let url = KomootURLNormalizer.constructURL(tourID: "456", shareToken: "abc123")
+        XCTAssertEqual(url, "https://www.komoot.com/tour/456?share_token=abc123")
     }
     
     // MARK: - GPX Builder Tests
@@ -126,7 +134,7 @@ final class Komoot2GPXTests: XCTestCase {
     
     func testKomootError_InvalidURL() {
         let error = KomootError.invalidURL
-        XCTAssertEqual(error.localizedDescription, "Invalid Komoot URL or tour ID.")
+        XCTAssertEqual(error.localizedDescription, "Invalid Komoot URL")
     }
     
     func testKomootError_TourNotFound() {
@@ -134,45 +142,79 @@ final class Komoot2GPXTests: XCTestCase {
         XCTAssertEqual(error.localizedDescription, "Tour not found. Check the URL and ensure the tour is public.")
     }
     
-    func testKomootError_InvalidResponse() {
+    func testKomootError_InvalidResponse403() {
         let error = KomootError.invalidResponse(statusCode: 403)
-        XCTAssertEqual(error.localizedDescription, "Komoot returned an error (HTTP 403). Check if the tour is public.")
+        XCTAssertEqual(error.localizedDescription, "This tour is private (HTTP 403). Only public tours can be downloaded.")
     }
     
     func testKomootError_InvalidResponse404() {
         let error = KomootError.invalidResponse(statusCode: 404)
-        XCTAssertEqual(error.localizedDescription, "Komoot returned an error (HTTP 404). Check if the tour is public.")
+        XCTAssertEqual(error.localizedDescription, "Tour not found (HTTP 404). Check the URL.")
+    }
+    
+    func testKomootError_InvalidResponse500() {
+        let error = KomootError.invalidResponse(statusCode: 500)
+        XCTAssertEqual(error.localizedDescription, "Komoot server error (HTTP 500). Please try again.")
+    }
+    
+    func testKomootError_InvalidResponse429() {
+        let error = KomootError.invalidResponse(statusCode: 429)
+        XCTAssertEqual(error.localizedDescription, "Too many requests. Please wait a moment and try again.")
     }
     
     // MARK: - Tour Record Tests
     
-    func testTourRecord_Filename() {
+    func testTourRecord_FormattedDate() {
+        let date = Date(timeIntervalSince1970: 0)
+        let record = TourRecord(
+            id: "123",
+            name: "Test Tour",
+            downloadDate: date,
+            coordinateCount: 100,
+            shareToken: nil,
+            filename: "123_Test_Tour.gpx",
+            komootURL: nil
+        )
+        
+        XCTAssertFalse(record.formattedDate.isEmpty)
+    }
+    
+    func testTourRecord_FormattedFileSize() {
         let record = TourRecord(
             id: "123",
             name: "Test Tour",
             downloadDate: Date(),
             coordinateCount: 100,
             shareToken: nil,
-            filename: "123_Test_Tour.gpx"
+            filename: "123_Test_Tour.gpx",
+            komootURL: nil
         )
         
-        XCTAssertEqual(record.filename, "123_Test_Tour.gpx")
+        XCTAssertEqual(record.formattedFileSize, "5 KB")
     }
     
-    func testTourRecord_FilenameWithSpecialCharacters() {
-        let record = TourRecord(
-            id: "456",
-            name: "Tour <Special> & \"Characters\"",
+    func testTourRecord_Equatable() {
+        let record1 = TourRecord(
+            id: "123",
+            name: "Test Tour",
             downloadDate: Date(),
-            coordinateCount: 50,
+            coordinateCount: 100,
             shareToken: nil,
-            filename: "456_Tour_Special_Characters.gpx"
+            filename: "123_Test_Tour.gpx",
+            komootURL: nil
         )
         
-        // Filename should be sanitized
-        XCTAssertFalse(record.filename.contains("<"))
-        XCTAssertFalse(record.filename.contains(">"))
-        XCTAssertFalse(record.filename.contains("&"))
+        let record2 = TourRecord(
+            id: "123",
+            name: "Test Tour",
+            downloadDate: record1.downloadDate,
+            coordinateCount: 100,
+            shareToken: nil,
+            filename: "123_Test_Tour.gpx",
+            komootURL: nil
+        )
+        
+        XCTAssertEqual(record1, record2)
     }
     
     // MARK: - Performance Tests
@@ -184,46 +226,6 @@ final class Komoot2GPXTests: XCTestCase {
         
         measure {
             _ = GPXBuilder.buildGPX(name: "Performance Test", coordinates: coordinates)
-        }
-    }
-}
-
-// MARK: - Test Helpers
-
-extension Komoot2GPXTests {
-    static var extractTourID: (String) -> String? {
-        return { urlString in
-            let trimmed = urlString.trimmingCharacters(in: .whitespaces)
-            if let url = URL(string: trimmed), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-                let path = components.path
-                if let range = path.range(of: #"/(?:tour|smarttour)/e?\d+"#, options: .regularExpression) {
-                    let match = String(path[range])
-                    if let idRange = match.range(of: #"\d+"#, options: .regularExpression) {
-                        return String(match[idRange])
-                    }
-                }
-            }
-            if trimmed.allSatisfy(\.isNumber) {
-                return trimmed
-            }
-            return nil
-        }
-    }
-    
-    static var extractCleanURL: (String) -> String {
-        return { urlString in
-            guard var components = URLComponents(string: urlString) else {
-                return urlString
-            }
-            
-            if let queryItems = components.queryItems {
-                let essentialItems = queryItems.filter { item in
-                    item.name == "share_token"
-                }
-                components.queryItems = essentialItems.isEmpty ? nil : essentialItems
-            }
-            
-            return components.string ?? urlString
         }
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import KomootCore
 
 class TourHistoryManager: ObservableObject {
     static let shared = TourHistoryManager()
@@ -7,7 +8,7 @@ class TourHistoryManager: ObservableObject {
     @Published var tours: [TourRecord] = []
     
     private let userDefaultsKey = "SavedTours"
-    private var appGroupURL: URL?
+    private let appGroupURL: URL?
     
     private init() {
         let fileManager = FileManager.default
@@ -70,24 +71,13 @@ class TourHistoryManager: ObservableObject {
     }
     
     func getTourFile(_ tour: TourRecord) -> URL? {
-        if let appGroupURL = appGroupURL {
-            let fileURL = appGroupURL.appendingPathComponent(tour.filename)
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                return fileURL
-            }
-        }
-        
-        let docsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileURL = docsURL.appendingPathComponent(tour.filename)
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            return fileURL
-        }
-        
-        return nil
+        guard let appGroupURL = appGroupURL else { return nil }
+        let fileURL = appGroupURL.appendingPathComponent(tour.filename)
+        return FileManager.default.fileExists(atPath: fileURL.path) ? fileURL : nil
     }
     
     func tourExists(_ tour: TourRecord) -> Bool {
-        return getTourFile(tour) != nil
+        getTourFile(tour) != nil
     }
     
     func validateFiles() {
@@ -99,16 +89,9 @@ class TourHistoryManager: ObservableObject {
     }
     
     private func deleteFile(for tour: TourRecord) {
-        let fileManager = FileManager.default
-        
-        if let appGroupURL = appGroupURL {
-            let fileURL = appGroupURL.appendingPathComponent(tour.filename)
-            try? fileManager.removeItem(at: fileURL)
-        }
-        
-        let docsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileURL = docsURL.appendingPathComponent(tour.filename)
-        try? fileManager.removeItem(at: fileURL)
+        guard let appGroupURL = appGroupURL else { return }
+        let fileURL = appGroupURL.appendingPathComponent(tour.filename)
+        try? FileManager.default.removeItem(at: fileURL)
     }
     
     func refresh() async {
@@ -121,8 +104,7 @@ class TourHistoryManager: ObservableObject {
         
         for (index, tour) in tours.enumerated() {
             if tour.komootURL == nil {
-                let url = KomootURLNormalizer.constructURL(tourID: tour.id, shareToken: tour.shareToken)
-                tours[index].komootURL = url
+                tours[index].komootURL = KomootURLNormalizer.constructURL(tourID: tour.id, shareToken: tour.shareToken)
                 needsSave = true
             }
         }
