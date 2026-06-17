@@ -1,5 +1,4 @@
 import SwiftUI
-import KomootCore
 
 struct ShareableFile: Identifiable {
     let id = UUID()

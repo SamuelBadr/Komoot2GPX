@@ -1,5 +1,4 @@
 import SwiftUI
-import KomootCore
 
 struct InputSection: View {
     @Binding var urlInput: String
@@ -40,8 +39,4 @@ struct InputSection: View {
         }
         .padding(.horizontal, 20)
     }
-}
-
-#Preview {
-    InputSection(urlInput: .constant(""), isFocused: .constant(false), isLoading: false, onDownload: {})
 }

@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import KomootCore
 
 class TourHistoryManager: ObservableObject {
     static let shared = TourHistoryManager()
